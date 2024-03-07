@@ -19,8 +19,8 @@ Rectilinear projection is projection in which straight lines in a scene remain s
 1. Install `opencv-python`, `numpy` packages.
 2. Print out the [patter.png](pattern.png).
 3. Run `python main.py -camera_index=0`.
-4. Show the printed image to the camera. Press 's' to save the frames. It is recommended to have 14 frames.
-5. After collecting frames 14 frames, press "q" to close the opencv window and calculate the calibration and save the results under the file name `calib_cam{camera_index}.pkl`
+4. Show the printed image to the camera. Press 's' to save the frames. It is recommended to have 14 frames. Press 'c' to update the frame.
+5. After collecting frames 14 frames, press "q" to close the opencv window and calculate the calibration and save the results under the file name `calib_cam{camera_index}.pkl`.
 6. See the calibration result and error in the terminal.
 
 
