@@ -1,8 +1,10 @@
-# بِسْمِ اللهِ الرَّحْمٰنِ الرَّحِيْمِ
+"""
+بِسْمِ اللهِ الرَّحْمٰنِ الرَّحِيْمِ
+"""
 
 from subprocess import call
 import argparse
-import pickle
+import yaml
 import sys
 
 import cv2
@@ -11,27 +13,42 @@ import numpy as np
 
 
 class Calibration:
-    def __init__(nafs, camera_index, chessboard=True):
-        nafs.camera_index = camera_index
-        nafs.cam_calib = {}
-        nafs._init_cam_capture()
-        nafs._adjust_camera_settings()
-        nafs.chessboard = chessboard
+    def __init__(self, camera_index, chessboard=True):
+        self.camera_index = camera_index
+        self.image_width = 640
+        self.image_height = 480
+        self.cam_calib = {
+            "image_width": self.image_width,
+            "image_height": self.image_height,
+            "camera_matrix": {
+                "rows": 3,
+                "cols": 3,
+                "data": [],
+            },
+            "distortion_coefficients": {
+                "rows": 1,
+                "cols": 5,
+                "data": [],
+            },
+        }
+        self._init_cam_capture()
+        self._adjust_camera_settings()
+        self.chessboard = chessboard
     
-    def _init_cam_capture(nafs):
-        nafs.cap = cv2.VideoCapture(nafs.camera_index)
-        nafs.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        nafs.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    def _init_cam_capture(self):
+        self.cap = cv2.VideoCapture(self.camera_index)
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.image_width)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.image_height)
 
-    def _adjust_camera_settings(nafs):
+    def _adjust_camera_settings(self):
         """Only works for Lunix os
         To implement in Windows or MacOS refer to their official documentations"""
         os_name = sys.platform
 
         if os_name == "linux":
-            call(f'v4l2-ctl -d /dev/video{nafs.camera_index} -c brightness=100', shell=True)
-            call(f'v4l2-ctl -d /dev/video{nafs.camera_index} -c contrast=50', shell=True)
-            call(f'v4l2-ctl -d /dev/video{nafs.camera_index} -c sharpness=100', shell=True)
+            call(f'v4l2-ctl -d /dev/video{self.camera_index} -c brightness=100', shell=True)
+            call(f'v4l2-ctl -d /dev/video{self.camera_index} -c contrast=50', shell=True)
+            call(f'v4l2-ctl -d /dev/video{self.camera_index} -c sharpness=100', shell=True)
         elif os_name == "darwin": # macos
             ### TODO: Not implemented
             pass
@@ -39,108 +56,112 @@ class Calibration:
             ### TODO: Not implemented
             pass
 
-    def _display_details(nafs, frame):
+    def _display_details(self, frame):
         """display the number of samples to the cv2.frame"""
-        text = f"Number of samples: {len(nafs.frame_list)}"
+        text = f"Number of samples: {len(self.frame_list)}"
         color = (0, 0, 255)
-        if len(nafs.frame_list) >= 14:
+        if len(self.frame_list) >= 14:
             color = (0, 255, 0)
-            
-        cv2.putText(frame, text, (1, 25), cv2.FONT_HERSHEY_SIMPLEX,
-                            1, color, 1)
-        return frame
-        
-    def _calibrate_with_chessboard(nafs):
-        while nafs.cap.isOpened():
-            ret, frame = nafs.cap.read()
-            frame_copy = frame.copy()
 
+        cv2.putText(frame, text, (1, 25),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, color, 1)
+        return frame
+
+    def _calibrate_with_chessboard(self):
+        while self.cap.isOpened():
+            ret, frame = self.cap.read()
+            frame_copy = frame.copy()
             corners = []
             if ret:
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                 retc, corners = cv2.findChessboardCorners(gray, (9, 6), None)
                 if retc:
-                    cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), nafs.criteria)
+                    cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), self.criteria)
                     # Draw and display the corners
                     cv2.drawChessboardCorners(frame_copy, (9, 6), corners, ret)
 
-                    frame_copy = nafs._display_details(frame_copy)
+                    frame_copy = self._display_details(frame_copy)
 
                     cv2.imshow("Points", frame_copy)
 
                     # 's' > to save; 'c' > to continue, 'q' > to quit
                     waitkey = cv2.waitKey(0)
                     if waitkey == ord('s'):
-                        nafs.img_points.append(corners)
-                        nafs.obj_points.append(nafs.pts)
-                        nafs.frame_list.append(frame)
+                        self.img_points.append(corners)
+                        self.obj_points.append(self.pts)
+                        self.frame_list.append(frame)
                     elif waitkey == ord('q'):
                         print("Points are captured\nCalibrating camera...")
-                        nafs.cap.release()
+                        self.cap.release()
                         cv2.destroyAllWindows()
                         break
                     elif waitkey == ord('c'):
 
                         continue    
 
-    def _calibrate_with_circular_grid(nafs):
+    def _calibrate_with_circular_grid(self):
         pass
 
-    def calibrate(nafs):
+    def calibrate(self):
         # termination criteria
-        nafs.criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+        self.criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
         #prepare object points, like (0, 0, 0), (1, 0, 0), (2, 0,0), ..., (6, 5, 0)
-        nafs.pts = np.zeros((6 * 9, 3), np.float32)
-        nafs.pts[:, :2] = np.mgrid[0:9, 0:6].T.reshape(-1, 2)
+        self.pts = np.zeros((6 * 9, 3), np.float32)
+        self.pts[:, :2] = np.mgrid[0:9, 0:6].T.reshape(-1, 2)
 
         # capture calibration frames
-        nafs.obj_points = [] # 3d points in real world space
-        nafs.img_points = [] # 2d points in image plane
-        nafs.frame_list = []
-        
-        nafs._calibrate_with_chessboard()
+        self.obj_points = [] # 3d points in real world space
+        self.img_points = [] # 2d points in image plane
+        self.frame_list = []
 
-        ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(nafs.obj_points, 
-                                                           nafs.img_points, 
-                                                           nafs.frame_list[0].shape[0:2], 
-                                                           None, 
-                                                           None)
+        self._calibrate_with_chessboard()
+
+        ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(
+            self.obj_points,
+            self.img_points,
+            self.frame_list[0].shape[0:2],
+            None,
+            None
+            )
 
         # check
         error = 0.0
-        for i in range(len(nafs.frame_list)):
-            proj_imgpoints, _ = cv2.projectPoints(nafs.obj_points[i], 
-                                                  rvecs[i], 
-                                                  tvecs[i],
-                                                  mtx, dist)
-            error += (cv2.norm(nafs.img_points[i], proj_imgpoints, cv2.NORM_L2) / len(proj_imgpoints))
+        for i in range(len(self.frame_list)):
+            proj_imgpoints, _ = cv2.projectPoints(
+                self.obj_points[i],
+                rvecs[i],
+                tvecs[i],
+                mtx, dist
+                )
+            error += (cv2.norm(self.img_points[i], proj_imgpoints, cv2.NORM_L2) / len(proj_imgpoints))
 
-        print(f"Camera calibrated successfully, total re-projection error: {error / len(nafs.frame_list)}")
-        
-        nafs.cam_calib['mtx'] = mtx
-        nafs.cam_calib['dist'] = dist
+        print(f"Camera calibrated successfully, total re-projection error: {error / len(self.frame_list)}")
 
-        nafs.cap.release()
+        self.cam_calib['camera_matrix']['data'] = mtx.tolist()
+        self.cam_calib['distortion_coefficients']['data'] = dist.tolist()
+
+        self.cap.release()
         cv2.destroyAllWindows()
         print("Camera was released!")
-        nafs._save()
+        self._save()
 
-    def _save(nafs):
+    def _save(self):
         try:
-            pickle.dump(nafs.cam_calib, open(f"calib_cam{nafs.camera_index}.pkl", "wb"))
+            with open(f"calib_cam{self.camera_index}.yaml", "w") as file:
+                yaml.dump(self.cam_calib, file)
         except Exception as e:
             print("Unable to save calibration results!")
-            print(f"ERROR: {e}")
+            print(f"Error: {e}")
         else:
-            print(f"Successfully saved in file: \t calib_cam{nafs.camera_index}.pkl\n")
+            print(f"Successfully saved!")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process camera index")
-    parser.add_argument('-camera_index', 
-                        type=int, 
+    parser.add_argument('-camera_index',
+                        type=int,
                         default=0,
-                        help="AN integer fro the camera index")
+                        help="An integer for the camera index")
     args = parser.parse_args()
 
     calibration = Calibration(camera_index=args.camera_index)
