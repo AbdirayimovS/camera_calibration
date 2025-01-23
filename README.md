@@ -1,6 +1,4 @@
 > بِسْمِ اللهِ الرَّحْمٰنِ الرَّحِيْمِ
-## Attention
-The code below is designed to calculate the camera matrix and distortion w.r.t camera resolution of **640x480**! For some camera it might not be the default resolution.
 
 # Camera Calibration
 Calibration is the first step in any computer vision project. 

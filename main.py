@@ -15,8 +15,9 @@ import numpy as np
 class Calibration:
     def __init__(self, camera_index, chessboard=True):
         self.camera_index = camera_index
-        self.image_width = 640
-        self.image_height = 480
+        self.cap = cv2.VideoCapture(camera_index)
+        self.image_width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        self.image_height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.cam_calib = {
             "image_width": self.image_width,
             "image_height": self.image_height,
@@ -31,14 +32,8 @@ class Calibration:
                 "data": [],
             },
         }
-        self._init_cam_capture()
         self._adjust_camera_settings()
         self.chessboard = chessboard
-    
-    def _init_cam_capture(self):
-        self.cap = cv2.VideoCapture(self.camera_index)
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.image_width)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.image_height)
 
     def _adjust_camera_settings(self):
         """Only works for Lunix os
@@ -96,8 +91,7 @@ class Calibration:
                         cv2.destroyAllWindows()
                         break
                     elif waitkey == ord('c'):
-
-                        continue    
+                        continue
 
     def _calibrate_with_circular_grid(self):
         pass
